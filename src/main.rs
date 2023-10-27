@@ -1,8 +1,11 @@
+mod app;
 mod atlas;
+mod buffer;
+mod cursor;
 mod editor;
 mod shader;
 mod theme;
-mod window;
+mod util;
 
 const GO_PROGRAM: &str = r#"package main
 
@@ -49,7 +52,7 @@ fn main() {
     const WIDTH: u32 = 1920;
     const HEIGHT: u32 = 1080;
     const FONT: &str = "./fonts/JetBrainsMono-Regular.ttf";
-    const FONT_H: u32 = 36;
+    const FONT_H: u32 = 39;
 
     // ----
     // Setup SDL2 and OpenGL
@@ -76,11 +79,15 @@ fn main() {
     gl::load_with(|s| {
         sdl_video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void
     });
-    // ----
+    // ####
 
-    let mut app = window::Window::new(WIDTH, HEIGHT, FONT, FONT_H);
-    app.w_theme.set_hex_bg("#119177").unwrap();
-    app.current_text = GO_PROGRAM.to_string();
+    // ----
+    // Setup Echo
+    // ----
+    let mut app = app::App::new(WIDTH, HEIGHT, FONT, FONT_H).unwrap();
+    app.w_theme.set_hex_bg("#030e8c").unwrap();
+    app.w_theme.set_hex_fg("#ffffff").unwrap();
+    // app.current_text = GO_PROGRAM.to_string();
 
     'running: loop {
         unsafe {
@@ -95,17 +102,23 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
-        for event in sdl_events.poll_iter() {
+        let mut render_buffer = false;
+        for sdl_event in sdl_events.poll_iter() {
             // SDL events are handled in a custom event loop that `app` understands.
-            match app.handle_event(event) {
-                window::WindowEvent::Quit => {
+            match app.handle_event(sdl_event) {
+                app::WindowEvent::Quit => {
                     break 'running;
                 },
+                app::WindowEvent::RenderBuffer => {
+                    render_buffer = true;
+                }
                 _ => { },
             }
         }
 
-        app.render_frame(&app.current_text, 0.0, HEIGHT as f32 - 50.0, 1.0, [1.0, 1.0, 1.0]);
-        sdl_window.gl_swap_window();
+        // if render_buffer {
+            app.render_frame(1.0);
+            sdl_window.gl_swap_window();
+        // }
     }
 }

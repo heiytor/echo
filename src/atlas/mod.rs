@@ -1,17 +1,17 @@
 #[derive(Clone)]
-pub struct Character {
-    pub tex_id: gl::types::GLuint, // ID da textura do GL
+pub struct Char {
+    pub tex_id: gl::types::GLuint,
     pub char_h: i32,
     pub char_w: i32,
     pub char_l: i32,
     pub char_t: i32,
-    pub advance_x: f32,                  // Quantidade para mover para o próximo caractere
+    pub advance_x: f32,
     pub advance_y: f32,
 }
 
-impl Default for Character {
+impl Default for Char {
     fn default() -> Self {
-        Character {
+        Char {
             tex_id: 0,
             char_h: 0,
             char_w: 0,
@@ -23,15 +23,15 @@ impl Default for Character {
     }
 }
 
-pub struct Chars {
-    pub characters: Vec<Character>,
+pub struct Atlas {
+    pub characters: Vec<Char>,
     /// guarda a altura máxima em pixel necessária para o maior glifo
-    pub max_h: u32,
+    pub max_h: f32,
     /// guarda a largura máxima em pixel necessária para o maior glifo
-    pub max_w: u32,
+    pub max_w: f32,
 }
 
-impl Chars {
+impl Atlas {
     ///
     ///
     ///
@@ -80,7 +80,7 @@ impl Chars {
             max_h = std::cmp::max(max_h, char_h);
         }
 
-        let mut characters: Vec<Character> = vec![Default::default(); 128];
+        let mut characters: Vec<Char> = vec![Default::default(); 128];
 
         for char in 32..128 {
             face.load_char(char, freetype::face::LoadFlag::RENDER).unwrap();
@@ -113,7 +113,7 @@ impl Chars {
                 gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as gl::types::GLint);
             }
 
-            characters[char] = Character {
+            characters[char] = Char {
                 tex_id,
                 char_w: bitmap.width(),
                 char_h: bitmap.rows(),
@@ -124,10 +124,10 @@ impl Chars {
             };
         }
 
-        Ok(Chars {
+        Ok(Atlas {
             characters,
-            max_h,
-            max_w,
+            max_h: max_h as f32,
+            max_w: max_w as f32,
         })
     }
 }

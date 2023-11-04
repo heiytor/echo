@@ -43,13 +43,15 @@ impl Color {
 pub struct Theme {
     bg: Color,
     fg: Color,
+    cs: Color,
 }
 
 impl Default for Theme {
     fn default() -> Self {
         Self {
-            bg: Color::new(0, 0, 0, 1),
-            fg: Color::new(1, 1, 1, 1),
+            bg: Color::new(0, 0, 0, 255),
+            fg: Color::new(255, 255, 255, 255),
+            cs: Color::new(255, 255, 255, 255),
         }
     }
 }
@@ -78,5 +80,13 @@ impl Theme {
     pub fn fg(&self) -> [f32; 4] {
         self.fg.get().map(|c| c as f32 / 255.0)
     }
-}
 
+    pub fn set_hex_cs(&mut self, hex: &str, alpha: u8) -> Result<(), String> {
+        let color = Srgb::<u8>::from_str(hex).map_err(|e| e.to_string())?;
+        Ok(self.cs.set(color.red, color.green, color.blue, alpha))
+    }
+
+    pub fn cs(&self) -> [f32; 4] {
+        self.cs.get().map(|c| c as f32 / 255.0)
+    }
+}

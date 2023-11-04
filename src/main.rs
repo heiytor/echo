@@ -1,59 +1,19 @@
-mod app;
+#![allow(temporary_cstring_as_ptr)]
+
+use std::time::{SystemTime, UNIX_EPOCH};
+
 mod atlas;
-mod buffer;
-mod cursor;
 mod editor;
 mod shader;
-mod theme;
 mod util;
+mod window;
 
-const GO_PROGRAM: &str = r#"package main
-
-import (
-    "fmt"
-    "strconv"
-)
-
-func main() {
-    var input string
-    var sum float64 = 0
-    var count int = 0
-
-    fmt.Println("Digite numeros e eu calcularei a media. Digite 'sair' para terminar.")
-
-    for {
-        fmt.Print("Digite um numero ou 'sair': ")
-        fmt.Scan(&input)
-
-        if input == "sair" {
-            break
-        }
-
-        num, err := strconv.ParseFloat(input, 64)
-        if err != nil {
-            fmt.Println("Por favor, digite um numero valido ou 'sair'")
-            continue
-        }
-
-        sum += num
-        count++
-    }
-
-    if count > 0 {
-        average := sum / float64(count)
-        fmt.Printf("A media dos numeros inseridos e: %.2f\n", average)
-    } else {
-        fmt.Println("Nenhum numero foi inserido.")
-    }
-}
-"#;
+const WIDTH: u32 = 1920;
+const HEIGHT: u32 = 1080;
+const FONT: &str = "./fonts/JetBrainsMono-Regular.ttf";
+const FONT_H: u32 = 24;
 
 fn main() {
-    const WIDTH: u32 = 1920;
-    const HEIGHT: u32 = 1080;
-    const FONT: &str = "./fonts/JetBrainsMono-Regular.ttf";
-    const FONT_H: u32 = 39;
-
     // ----
     // Setup SDL2 and OpenGL
     // ----
@@ -69,6 +29,17 @@ fn main() {
 
     let mut sdl_events: sdl2::EventPump = sdl_ctx.event_pump().unwrap();
 
+    // FPS 
+    let sdl_timer = sdl_ctx.timer().unwrap();
+    let mut start: u64;
+    let mut end: u64;
+    let mut elapsed: u64;
+    let mut frames: u128 = 0;
+    let mut start_now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards!")
+        .as_millis();
+
     let gl_attr = sdl_video_subsystem.gl_attr();
     gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
     gl_attr.set_context_version(3, 3);
@@ -76,6 +47,7 @@ fn main() {
     // Retaining the OpenGL context is crucial; dropping it prematurely can cause rendering issues.
     let _gl_ctx = sdl_window.gl_create_context().unwrap();
 
+    sdl_video_subsystem.gl_set_swap_interval(0).unwrap(); // disable vsync
     gl::load_with(|s| {
         sdl_video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void
     });
@@ -84,41 +56,60 @@ fn main() {
     // ----
     // Setup Echo
     // ----
-    let mut app = app::App::new(WIDTH, HEIGHT, FONT, FONT_H).unwrap();
-    app.w_theme.set_hex_bg("#030e8c").unwrap();
-    app.w_theme.set_hex_fg("#ffffff").unwrap();
-    // app.current_text = GO_PROGRAM.to_string();
+    let mut window = window::Window::new(
+        WIDTH as f32, HEIGHT as f32,
+        FONT, FONT_H,
+    ).unwrap();
+    
+    // window.theme.set_hex_cs("#fa0a1e", 123).unwrap();
+    window.theme.set_hex_cs("#ffffff", 255).unwrap();
+    window.theme.set_hex_bg("#030e8c").unwrap();
+    window.theme.set_hex_fg("#fa0a1e").unwrap();
 
     'running: loop {
+        start = sdl_timer.performance_counter();
+
         unsafe {
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
             gl::ClearColor(
-                app.w_theme.bg()[0],
-                app.w_theme.bg()[1],
-                app.w_theme.bg()[2],
-                app.w_theme.bg()[3],
+                window.theme.bg()[0],
+                window.theme.bg()[1],
+                window.theme.bg()[2],
+                window.theme.bg()[3],
             );
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
-        let mut render_buffer = false;
         for sdl_event in sdl_events.poll_iter() {
             // SDL events are handled in a custom event loop that `app` understands.
-            match app.handle_event(sdl_event) {
-                app::WindowEvent::Quit => {
+            match window.handle_event(sdl_event) {
+                window::WindowEvent::Quit => {
                     break 'running;
                 },
-                app::WindowEvent::RenderBuffer => {
-                    render_buffer = true;
-                }
                 _ => { },
             }
         }
 
-        // if render_buffer {
-            app.render_frame(1.0);
-            sdl_window.gl_swap_window();
-        // }
+        end = sdl_timer.performance_counter();
+        elapsed = ((end - start) / sdl_timer.performance_frequency()) * 1000;
+
+        frames += 1;
+        match SystemTime::now().duration_since(UNIX_EPOCH) {
+            Err(_) => {}
+            Ok(time) => {
+                if time.as_millis() - start_now > 100 {
+                    let fps = frames as f64 / ((time.as_millis() - start_now) as f64 / 1000.0);
+                    window.set_fps(fps);
+                    frames = 0;
+                    start_now = time.as_millis();
+                }
+            }
+        }
+
+        window.next_frame();
+        sdl_window.gl_swap_window();
+
+        std::thread::sleep(std::time::Duration::from_millis(1 - elapsed.min(1)));
     }
 }

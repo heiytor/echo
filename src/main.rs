@@ -8,8 +8,8 @@ mod shader;
 mod util;
 mod window;
 
-const WIDTH: u32 = 1920;
-const HEIGHT: u32 = 1080;
+const WIDTH: u32 = 1380;
+const HEIGHT: u32 = 720;
 const FONT: &str = "./fonts/JetBrainsMono-Regular.ttf";
 const FONT_H: u32 = 24;
 
